@@ -1,4 +1,5 @@
 #include "leveldb/db.h"
+#include "leveldb/write_batch.h"
 #include <cassert>
 #include <iostream>
 
@@ -12,22 +13,29 @@ int main() {
     leveldb::Status tStatus = leveldb::DB::Open(tOptions, "testdb", &pDb);
     assert(tStatus.ok());
 
-    std::string const & strKey = "TestKey";
-
-    tStatus = pDb->Put(leveldb::WriteOptions(), strKey, "TestValue");
-    if(!tStatus.ok())
+    std::string const & strKey1 = "TestKey1";
+    std::string const & strKey2 = "TestKey2";
+    
+    leveldb::WriteBatch oWriteBatch;
     {
-        std::cerr << tStatus.ToString() << std::endl;
+        oWriteBatch.Put(strKey1, "TestValue1");
+        oWriteBatch.Put(strKey2, "TestValue2");
     }
-    std::string strRes;
-    tStatus = pDb->Get(leveldb::ReadOptions(), strKey, &strRes);
-    if(!tStatus.ok())
-    {
-        std::cerr << tStatus.ToString() << std::endl;
-    }
-    std::cout << strRes << std::endl;
+    
+    tStatus = pDb->Write(leveldb::WriteOptions(), &oWriteBatch);
 
-    tStatus = pDb->Delete(leveldb::WriteOptions(), strKey);
+    std::string strValue1, strValue2;
+    tStatus = pDb->Get(leveldb::ReadOptions(), strKey1, &strValue1);
+    tStatus = pDb->Get(leveldb::ReadOptions(), strKey2, &strValue2);
+
+    // iterator all key
+    leveldb::Iterator* it = pDb->NewIterator(leveldb::ReadOptions());
+    for (it->SeekToFirst(); it->Valid(); it->Next()) 
+    {
+        std::cout << it->key().ToString() << ": "  << it->value().ToString() << std::endl;
+    }
+    assert(it->status().ok());  // Check for any errors found during the scan
+    delete it;
 
     delete pDb;
     return 0;
